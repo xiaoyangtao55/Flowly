@@ -31,11 +31,21 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # 默认会安装已被移除的 "tools" 包导致失败，这里只装 platform-tools
+          packages: platform-tools
 
       - name: Install SDK packages
         run: |
-          yes | sdkmanager --licenses > /dev/null
-          sdkmanager --install "platforms;android-37.0" "build-tools;37.0.0"
+          SDK="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDK" ]; then
+            SDK="$(command -v sdkmanager)"
+            yes | "$SDK" --licenses > /dev/null
+            "$SDK" --install "cmdline-tools;latest" > /dev/null
+            SDK="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          fi
+          yes | "$SDK" --licenses > /dev/null
+          "$SDK" --install "platforms;android-37.0" "build-tools;37.0.0"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4

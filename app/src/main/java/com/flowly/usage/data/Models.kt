@@ -59,6 +59,10 @@ data class UsageSnapshot(
     val yesterdayWifi: Long = 0,
     val cycleMobile: Long = 0,
     val cycleWifi: Long = 0,
+    /** 热点共享用量；null 表示系统未返回 tethering 记录（无使用或机型不上报） */
+    val todayHotspot: Long? = null,
+    /** 热点共享用量；null 表示系统未返回 tethering 记录（无使用或机型不上报） */
+    val cycleHotspot: Long? = null,
     val daily: List<DayTotal> = emptyList(),
     val apps: List<AppUsage> = emptyList(),
     val cycleStart: LocalDate = LocalDate.now(),

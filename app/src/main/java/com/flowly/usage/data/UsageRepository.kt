@@ -13,6 +13,9 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.util.concurrent.ConcurrentHashMap
 
+/** NetworkStats 中代表热点共享流量的特殊 UID（android.net.TrafficStats.UID_TETHERING） */
+private const val UID_TETHERING = -5
+
 class UsageRepository(private val context: Context) {
 
     private val statsManager: NetworkStatsManager? =
@@ -48,6 +51,9 @@ class UsageRepository(private val context: Context) {
                 queryPerUid(manager, ConnectivityManager.TYPE_WIFI, cycleStartMillis, now)
             }
 
+            val todayHotspot = hotspotUsage(todayMobile, todayWifi)
+            val cycleHotspot = hotspotUsage(cycleMobile, cycleWifi)
+
             val days = (chartDays - 1 downTo 0).map { today.minusDays(it.toLong()) }
             val daily = days.map { date ->
                 if (date == today) {
@@ -70,6 +76,8 @@ class UsageRepository(private val context: Context) {
                     ?: dayTotals(manager, today.minusDays(1), today, zone).second,
                 cycleMobile = cycleMobile.total(),
                 cycleWifi = cycleWifi.total(),
+                todayHotspot = todayHotspot,
+                cycleHotspot = cycleHotspot,
                 daily = daily,
                 apps = apps,
                 cycleStart = cycleStart,
@@ -166,6 +174,17 @@ class UsageRepository(private val context: Context) {
         }
         synchronized(appCacheLock) { appCache[uid] = identity }
         return identity
+    }
+
+    /**
+     * 系统把热点共享流量记在特殊 UID（-5）下，不归属任何应用。
+     * 部分机型完全不返回该 bucket，此时无法区分“没用过热点”与“系统不上报”，返回 null。
+     */
+    private fun hotspotUsage(mobile: Map<Int, Long>, wifi: Map<Int, Long>): Long? {
+        val mobileBytes = mobile[UID_TETHERING]
+        val wifiBytes = wifi[UID_TETHERING]
+        if (mobileBytes == null && wifiBytes == null) return null
+        return (mobileBytes ?: 0L) + (wifiBytes ?: 0L)
     }
 
     private fun Map<Int, Long>.total(): Long = values.sum()

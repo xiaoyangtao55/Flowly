@@ -20,11 +20,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DataUsage
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Wifi
+import androidx.compose.material.icons.rounded.WifiTethering
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -144,6 +146,13 @@ fun OverviewScreen(
         }
 
         item {
+            HotspotCard(
+                today = state.snapshot.todayHotspot,
+                cycle = state.snapshot.cycleHotspot,
+            )
+        }
+
+        item {
             FlowlyCard(contentPadding = PaddingValues(20.dp)) {
                 SectionHeader("用量趋势") {
                     TextButton(
@@ -203,6 +212,53 @@ fun OverviewScreen(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HotspotCard(today: Long?, cycle: Long?) {
+    val reported = today != null || cycle != null
+    FlowlyCard(contentPadding = PaddingValues(horizontal = 18.dp, vertical = 14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .background(MaterialTheme.colorScheme.tertiaryContainer, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.WifiTethering,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("热点共享", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    text = if (reported) {
+                        "本周期 ${cycle?.let(::formatBytes) ?: "—"}"
+                    } else {
+                        "系统未上报热点统计"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = "今日",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = today?.let(::formatBytes) ?: "—",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
             }
         }
     }

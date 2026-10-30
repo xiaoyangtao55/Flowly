@@ -20,8 +20,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.flowly.usage.data.DayTotal
+import com.flowly.usage.data.MonthUsage
 import com.flowly.usage.data.Transport
 import com.flowly.usage.ui.chartDateLabel
 
@@ -31,11 +33,42 @@ fun DailyBarChart(
     transport: Transport,
     modifier: Modifier = Modifier,
 ) {
-    val values = daily.map { it.bytes(transport) }
+    val compact = daily.size > 10
+    val labels = daily.mapIndexed { index, day ->
+        val showLabel = !compact || (daily.lastIndex - index) % 5 == 0
+        if (showLabel) chartDateLabel(day.date, compact) else ""
+    }
+    BarChart(
+        values = daily.map { it.bytes(transport) },
+        labels = labels,
+        modifier = modifier,
+    )
+}
+
+@Composable
+fun MonthlyBarChart(
+    months: List<MonthUsage>,
+    transport: Transport,
+    modifier: Modifier = Modifier,
+) {
+    BarChart(
+        values = months.map { it.bytes(transport) },
+        labels = months.map { "${it.month}月" },
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun BarChart(
+    values: List<Long>,
+    labels: List<String>,
+    modifier: Modifier = Modifier,
+    chartHeight: Dp = 150.dp,
+) {
     val maxValue = (values.maxOrNull() ?: 0L).coerceAtLeast(1L)
     val animation = remember { Animatable(0f) }
 
-    LaunchedEffect(daily, transport) {
+    LaunchedEffect(values) {
         animation.snapTo(0f)
         animation.animateTo(
             targetValue = 1f,
@@ -47,13 +80,12 @@ fun DailyBarChart(
     val tertiary = MaterialTheme.colorScheme.tertiary
     val track = MaterialTheme.colorScheme.surfaceContainerHighest
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val compact = daily.size > 10
 
     Column(modifier) {
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(150.dp),
+                .height(chartHeight),
         ) {
             if (values.isEmpty()) return@Canvas
             val slot = size.width / values.size
@@ -71,7 +103,7 @@ fun DailyBarChart(
                 val ratio = value.toFloat() / maxValue
                 val height = (size.height * 0.86f) * ratio * animation.value
                 val left = slot * index + (slot - barWidth) / 2f
-                val isToday = index == values.lastIndex
+                val isCurrent = index == values.lastIndex
 
                 if (value <= 0L) {
                     drawRoundRect(
@@ -85,7 +117,7 @@ fun DailyBarChart(
                     val top = baseY - barHeight
                     drawRoundRect(
                         brush = Brush.verticalGradient(
-                            colors = if (isToday) {
+                            colors = if (isCurrent) {
                                 listOf(primary, primary.copy(alpha = 0.62f))
                             } else {
                                 listOf(primary.copy(alpha = 0.55f), tertiary.copy(alpha = 0.35f))
@@ -104,19 +136,14 @@ fun DailyBarChart(
         Spacer(Modifier.height(8.dp))
 
         Row(Modifier.fillMaxWidth()) {
-            daily.forEachIndexed { index, day ->
-                val showLabel = !compact || (daily.lastIndex - index) % 5 == 0
-                val isToday = index == daily.lastIndex
+            labels.forEachIndexed { index, label ->
                 Text(
-                    text = if (showLabel) chartDateLabel(day.date, compact) else "",
+                    text = label,
                     modifier = Modifier.weight(1f),
                     textAlign = TextAlign.Center,
                     maxLines = 1,
                     style = MaterialTheme.typography.labelSmall,
-                    color = when {
-                        isToday -> primary
-                        else -> labelColor
-                    },
+                    color = if (index == labels.lastIndex) primary else labelColor,
                 )
             }
         }

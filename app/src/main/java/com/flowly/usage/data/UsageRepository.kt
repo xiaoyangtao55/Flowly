@@ -16,11 +16,15 @@ import java.util.concurrent.ConcurrentHashMap
 /** NetworkStats 中代表热点共享流量的特殊 UID（android.net.TrafficStats.UID_TETHERING） */
 private const val UID_TETHERING = -5
 
+/** 历史首次回填的最大天数 */
+private const val BACKFILL_DAYS = 90L
+
 class UsageRepository(private val context: Context) {
 
     private val statsManager: NetworkStatsManager? =
         context.getSystemService(NetworkStatsManager::class.java)
     private val packageManager = context.packageManager
+    private val history = HistoryStore(context)
 
     private val dayCache = ConcurrentHashMap<Long, LongArray>()
     private val appCache = HashMap<Int, AppIdentity>()
@@ -67,6 +71,17 @@ class UsageRepository(private val context: Context) {
             val yesterday = if (daily.size >= 2) daily[daily.size - 2] else null
             val apps = buildApps(todayMobile, todayWifi, cycleMobile, cycleWifi)
 
+            history.upsert(
+                daily.map { day ->
+                    HistoryStore.Entry(
+                        date = day.date,
+                        mobileBytes = day.mobileBytes,
+                        wifiBytes = day.wifiBytes,
+                        hotspotBytes = if (day.date == today) todayHotspot else null,
+                    )
+                },
+            )
+
             UsageSnapshot(
                 todayMobile = todayMobile.total(),
                 todayWifi = todayWifi.total(),
@@ -83,6 +98,31 @@ class UsageRepository(private val context: Context) {
                 cycleStart = cycleStart,
                 generatedAt = now,
             )
+        }
+
+    /**
+     * 读取本地保存的按月历史；首次使用时回填最近 90 天（受系统保留期限制，能取多少算多少）。
+     */
+    suspend fun loadHistory(months: Int = 6): List<MonthUsage> =
+        withContext(Dispatchers.IO) {
+            val zone = ZoneId.systemDefault()
+            val today = LocalDate.now(zone)
+            val manager = statsManager ?: return@withContext history.months(months)
+
+            val missing = history.missingDays(
+                from = today.minusDays(BACKFILL_DAYS - 1),
+                to = today.minusDays(1),
+            )
+            if (missing.isNotEmpty()) {
+                val entries = missing.mapNotNull { date ->
+                    runCatching {
+                        val (mobile, wifi) = dayTotals(manager, date, today, zone)
+                        HistoryStore.Entry(date, mobile, wifi)
+                    }.getOrNull()
+                }
+                history.upsert(entries)
+            }
+            history.months(months)
         }
 
     private fun dayTotals(

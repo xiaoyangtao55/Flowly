@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
@@ -17,6 +18,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,6 +36,7 @@ import com.flowly.usage.ui.components.LoadingPane
 import com.flowly.usage.ui.components.PermissionGate
 import com.flowly.usage.ui.screens.AppDetailSheet
 import com.flowly.usage.ui.screens.AppsScreen
+import com.flowly.usage.ui.screens.HistoryScreen
 import com.flowly.usage.ui.screens.OverviewScreen
 import com.flowly.usage.ui.screens.SettingsScreen
 
@@ -48,6 +51,11 @@ fun FlowlyApp() {
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         viewModel.refresh()
+        viewModel.refreshHistory()
+    }
+
+    LaunchedEffect(tab) {
+        if (tab == 2) viewModel.refreshHistory()
     }
 
     Scaffold(
@@ -72,6 +80,12 @@ fun FlowlyApp() {
                 NavigationBarItem(
                     selected = tab == 2,
                     onClick = { tab = 2 },
+                    icon = { Icon(Icons.Rounded.History, contentDescription = null) },
+                    label = { Text("历史") },
+                )
+                NavigationBarItem(
+                    selected = tab == 3,
+                    onClick = { tab = 3 },
                     icon = { Icon(Icons.Rounded.Settings, contentDescription = null) },
                     label = { Text("设置") },
                 )
@@ -80,7 +94,7 @@ fun FlowlyApp() {
     ) { innerPadding ->
         Box(Modifier.fillMaxSize().padding(innerPadding)) {
             when {
-                tab == 2 -> SettingsScreen(
+                tab == 3 -> SettingsScreen(
                     state = state,
                     onSavePlan = { quotaGb, day -> viewModel.savePlan(quotaGb, day) },
                     onOpenPermission = { openUsageAccess(context) },
@@ -98,8 +112,13 @@ fun FlowlyApp() {
                     onRefresh = { viewModel.refresh() },
                     onDaysChange = { days -> viewModel.refresh(days) },
                     onOpenApps = { tab = 1 },
-                    onOpenPlan = { tab = 2 },
+                    onOpenPlan = { tab = 3 },
                     onAppClick = { selectedApp = it },
+                )
+
+                tab == 2 -> HistoryScreen(
+                    state = state,
+                    onReload = { viewModel.refreshHistory() },
                 )
 
                 else -> AppsScreen(

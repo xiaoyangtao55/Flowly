@@ -2,6 +2,7 @@ package com.flowly.usage.ui
 
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.flowly.usage.data.MonthUsage
 import com.flowly.usage.data.PlanSettings
 import com.flowly.usage.data.PlanStore
 import com.flowly.usage.data.UsageRepository
@@ -21,6 +22,8 @@ data class UiState(
     val plan: PlanSettings = PlanSettings(),
     val snapshot: UsageSnapshot = UsageSnapshot(),
     val chartDays: Int = 7,
+    val months: List<MonthUsage> = emptyList(),
+    val historyLoading: Boolean = false,
     val error: String? = null,
 )
 
@@ -33,6 +36,7 @@ class UsageViewModel(application: Application) : AndroidViewModel(application) {
     val state: StateFlow<UiState> = _state.asStateFlow()
 
     private var loadJob: Job? = null
+    private var historyJob: Job? = null
 
     init {
         refresh()
@@ -75,6 +79,21 @@ class UsageViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
             }
+        }
+    }
+
+    fun refreshHistory() {
+        if (!UsageRepository.hasUsageAccess(getApplication())) return
+        historyJob?.cancel()
+        historyJob = viewModelScope.launch {
+            _state.update { it.copy(historyLoading = true) }
+            runCatching { repository.loadHistory(6) }
+                .onSuccess { months ->
+                    _state.update { it.copy(months = months, historyLoading = false) }
+                }
+                .onFailure {
+                    _state.update { it.copy(historyLoading = false) }
+                }
         }
     }
 

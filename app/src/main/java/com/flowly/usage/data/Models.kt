@@ -34,6 +34,22 @@ data class DayTotal(
         if (transport == Transport.MOBILE) mobileBytes else wifiBytes
 }
 
+data class MonthUsage(
+    val year: Int,
+    val month: Int,
+    val mobileBytes: Long,
+    val wifiBytes: Long,
+    /** 已知热点用量；null 表示该月没有任何一天上报过热点统计 */
+    val hotspotBytes: Long?,
+) {
+    val label: String get() = "${year}年${month}月"
+
+    val total: Long get() = mobileBytes + wifiBytes
+
+    fun bytes(transport: Transport): Long =
+        if (transport == Transport.MOBILE) mobileBytes else wifiBytes
+}
+
 data class AppUsage(
     val uid: Int,
     val packageName: String,
